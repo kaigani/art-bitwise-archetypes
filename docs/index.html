@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>RENDER d.HEXABIT</title>
+		<!-- AUTHOR: Kaigani - 2021 -->
+
+		<!-- mobile viewport: -->
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"/>
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+		<meta property="og:title" content="Excess Bits: Countdown Clock">
+		<meta property="og:image" content="https://kaigani.github.io/art-excess-bits/img/promo.png">
+		<meta property="og:description" content="Countdown to launch!">
+		<meta property="og:url" content="https://kaigani.github.io/art-excess-bits/">
+		<meta name="twitter:card" content="summary_large_image">
+
+        <!-- 3rd party Libraries -->
+		<script src="lib/dat.gui.min.js"></script>
+
+		<!-- CODE HERE -->
+        <script src="js/bitwiseUtils.js"></script>
+        <script src="js/canvasUtils.js"></script>
+        <script src="js/Sprite.js"></script>
+        <script src="js/dHEXABIT.js"></script>
+        <script src="js/Archetype.js"></script>
+        <script src="gif.js"></script>
+
+        <script>
+            class ColorBar {
+                constructor(type='INFP',globalSat=100,globalLum=50){
+
+                    switch(type){
+                        case 'INFP':
+                            this.color1 = `rgb(${parseInt(Math.random()*256)},${parseInt(Math.random()*256)},${parseInt(Math.random()*256)})`
+                            this.color2 = `rgb(${parseInt(Math.random()*256)},${parseInt(Math.random()*256)},${parseInt(Math.random()*256)})`
+                            break
+
+                        case 'ENFJ':
+                            this.color1 = `hsl(${parseInt(Math.random()*360)},100%,70%)`
+                            this.color2 = `hsl(${parseInt(Math.random()*360)},100%,70%)`
+                            break
+
+                        case 'INTP':
+                            this.color1 = `hsl(${parseInt(Math.random()*360)},${globalSat}%,${globalLum}%)`
+                            this.color2 = `hsl(${parseInt(Math.random()*360)},${globalSat}%,${globalLum}%)`
+                            break
+
+                        case 'ISTP':
+                            this.color1 = `hsl(${parseInt(Math.random()*360)},33%,66%)`
+                            this.color2 = `hsl(${parseInt(Math.random()*360)},33%,66%)`
+                            break
+
+                        case 'ENTP':
+                        default:
+                            this.color1 = `hsl(${parseInt(Math.random()*360)},100%,10%)`
+                            this.color2 = `hsl(${parseInt(Math.random()*360)},100%,10%)`
+                            break
+                    }
+
+                    this.i = parseInt(Math.random()*20)*0.05 // 20 steps
+                    this.forward = Math.random() > 0.5 
+                }
+                iterate(){
+                    if(this.forward){
+                        this.i += 0.05
+                        if(this.i >= 1){
+                            this.i = 1
+                            this.forward = false
+                        }
+                    }else{
+                        this.i -= 0.05
+                        if(this.i <= 0){
+                            this.i=0
+                            this.forward = true
+                        }
+                    }
+                }
+            }
+        </script>
+		<script>
+
+            class Token {
+                constructor(type='INFP'){
+                    // Archetype animation
+                    this.archetype = new Archetype()
+                    this.type = type
+
+                    this.globalSat = parseInt(Math.random()*101)
+                    this.globalLum = parseInt(Math.random()*101)
+
+                    this.bars = []
+                        for(let i=0;i<16;i++){
+
+                            this.bars.push( new ColorBar() )
+                        }
+
+                    this.spotHue = parseInt(Math.random()*360)
+
+                    // gif settings
+                    this.gif = null
+                    this.started = false
+                    this.recording = false
+                    this.count = 0
+                    this.last = 200 // 200 frame gif 
+                }
+
+                // start the GIF recording
+                start(){
+                    if(!this.started){
+                        this.started = true
+                        this.recording = true
+                        this.gif = new GIF({
+                            workers: 2,
+                            quality: 1
+                        })
+                        this.gif.on('finished', function(blob) {
+                            window.open(URL.createObjectURL(blob))
+                        })
+                    }
+                }
+
+                // save a frame if we're recording, default timing
+                save(frame){
+
+                    if(this.recording){
+                        // render GIF 1 loop only
+                        if(this.count < this.last){
+                            this.gif.addFrame(frame, {delay:10})
+                        }else{
+                            this.gif.render()
+                            this.recording = false
+                        } 
+                        this.count++
+                    }
+                }
+            }
+            
+            let myToken = new Token()
+
+			window.addEventListener('load',()=>{
+
+                //let myToken = new Token()
+
+                // Set up DAT GUI
+                const guiData = {
+					type : 'INFP',
+			
+					record: function(){ 
+						myToken.start()
+                        alert('Started recording the GIF')
+					},
+                    update: function(){
+                        console.log('UPDATE!')
+                        myToken = new Token(guiData.type)
+                    }
+				}
+
+                const gui = new dat.GUI()
+				
+				gui.add(guiData,'type',['INFP','ENFJ','INTP','ISTP','ENTP']).onChange(guiData.update)
+                gui.add(guiData,'update')
+                gui.add(guiData,'record')
+				//let f = gui.addFolder('Actions')
+				//f.add(guiData,'increment')
+				//f.add(guiData,'download')
+			    
+
+                // The small drawing canvas to render
+                let canvas = document.createElement('canvas')
+                canvas.width = 128
+                canvas.height = 128
+                //document.body.appendChild(canvas)
+
+                
+                // for GIF timing 
+                let count = 0
+                let last = 200
+
+                // for debounce
+                let timestamp = 0
+
+                function run(){
+                    
+                    // LIMIT FRAME RATE
+                    if(Date.now()-timestamp > 100){
+                        timestamp = Date.now()
+
+                        let c = canvas.getContext('2d')
+
+                        for(let i=0;i<16;i++){
+                            let o = myToken.bars[i]
+                            let gradient = c.createLinearGradient(0, 0, 128, 0)
+                            gradient.addColorStop(0, o.color1)
+                            gradient.addColorStop(1-o.i, o.color2)
+                            gradient.addColorStop(1, o.color1)
+                            c.fillStyle = gradient
+                            c.fillRect(0,i*8,128,8)
+
+                            o.iterate()
+                        }
+
+                        let radial = c.createRadialGradient(64,64,8, 64,64,64)
+                        // Add three color stops
+                        radial.addColorStop(0, `hsla(${myToken.spotHue},100%,50%,0.7)`)
+                        radial.addColorStop(1, `hsla(${myToken.spotHue},100%,50%,0)`)
+                        c.fillStyle = radial
+                        c.fillRect(0, 0, 128, 128)
+                        
+                        let destCanvas = document.getElementsByTagName('canvas')[0]
+                        let frame = newCanvas(destCanvas.width,destCanvas.height)
+                        renderPixelized(canvas,frame)
+
+                        // GLYPH archetype animation
+                        let sprite = myToken.count>0 && myToken.count%5 === 0 ? myToken.archetype.getNextFrame() : myToken.archetype.getFrame() // advances the frame counter - which loops
+                        sprite.draw(frame,{r:0,b:0,g:0,a:255},68,68)
+                        sprite.draw(frame,{r:255,b:255,g:255,a:255},64,64)
+                        
+
+                        // show on the screen
+                        destCanvas.getContext('2d').drawImage(frame,0,0,destCanvas.width,destCanvas.height)
+                        
+                        
+                        // save frame to GIF if recording
+                        myToken.save(frame)
+
+                    }
+                    requestAnimationFrame(run)
+                }
+
+                run()
+
+
+
+
+                
+			})
+
+
+		
+			function download(){
+
+				//draw the download token
+				let canvas = document.getElementsByTagName('canvas')[0]
+				//let c = dCanvas.getContext('2d')
+				//c.webkitImageSmoothingEnabled = false
+				//drawToken(dCanvas,tokenData)
+
+				let downloadLink = document.createElement('a')
+				//let canvas = document.getElementById('myCanvas')
+
+				downloadLink.href = canvas.toDataURL('image/png')
+				downloadLink.download = 'test_image'
+				downloadLink.click()
+			}
+			
+	
+    		function BlockElasticScroll(event) {
+        		event.preventDefault();
+    		}
+    	</script>
+		
+		<style type="text/css" media="screen">
+		
+			* {
+			  box-sizing: border-box;
+			}
+
+			@font-face {
+			    font-family: 'apple_ii';
+			    src: url('PrintChar21.ttf');
+			}
+			
+			body {
+			  font-family: 'apple_ii';
+			}
+			
+			/* Style the header */
+			.header {
+			  padding: 30px;
+			  text-align: center;
+			  font-size: 16px;
+			}
+			
+			/* Container for flexboxes */
+			.row {
+			  display: -webkit-flex;
+			  display: flex;
+			}
+			
+			/* Create three unequal columns that sits next to each other */
+			.column {
+			  padding: 0px;
+			}
+			
+			/* Left and right column */
+			.column.side {
+			   -webkit-flex: 1;
+			   -ms-flex: 1;
+			   flex: 1;
+			}
+			
+			/* Middle column */
+			.column.middle {
+			  -webkit-flex: 2;
+			  -ms-flex: 2;
+			  flex: 2;
+			  text-align: center;
+			}
+
+			
+			/* Style the footer */
+			.footer {
+			  padding: 10px;
+			  text-align: center;
+			}
+
+            #timeBlock {
+                padding: 16px;
+				background-color: #C4CDD5;
+				width:fit-content;
+            }
+			canvas:first-child {
+				margin: 8px;
+                width: 1024px;
+                height: 1024px;
+                image-rendering: pixelated;
+			}
+			
+			/* Responsive layout - makes the three columns stack on top of each other instead of next to each other */
+			@media (max-width: 600px) {
+			  .row {
+				-webkit-flex-direction: column;
+				flex-direction: column;
+			  }
+			}
+			</style>
+		
+	</head>
+	<body ontouchmove="BlockElasticScroll(event);">
+		
+		
+		<div class="header">
+		  <p>d.HEXABIT - RENDER</p>
+		</div>
+		
+		<div class="row">
+			<canvas id='myCanvas' width=256 height=256></canvas>
+		</div>
+		
+		</body>
+		</html>
+</html>
+		
