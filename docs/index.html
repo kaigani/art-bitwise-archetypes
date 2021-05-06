@@ -87,6 +87,8 @@
                     this.archetype = new Archetype()
                     this.type = type
 
+                    this.variation = false
+
                     this.globalSat = parseInt(Math.random()*101)
                     this.globalLum = parseInt(Math.random()*101)
 
@@ -138,28 +140,36 @@
             }
             
             let myToken = new Token()
+            // Set up DAT GUI
+            const guiData = {
+                type : 'INFP',
+                variation: false,
+        
+                record: function(){ 
+                    myToken.start()
+                    alert('Started recording the GIF')
+                },
+                update: function(){
+                    console.log('UPDATE!')
+                    myToken = new Token(guiData.type)
+                },
+                toggleVariation: function(){
+                    console.log('TOGGLE',guiData.variation)
+                    guiData.variation != guiData.variation
+                    myToken.variation = guiData.variation
+                }
+            }
 
 			window.addEventListener('load',()=>{
 
                 //let myToken = new Token()
 
-                // Set up DAT GUI
-                const guiData = {
-					type : 'INFP',
-			
-					record: function(){ 
-						myToken.start()
-                        alert('Started recording the GIF')
-					},
-                    update: function(){
-                        console.log('UPDATE!')
-                        myToken = new Token(guiData.type)
-                    }
-				}
+                
 
                 const gui = new dat.GUI()
 				
 				gui.add(guiData,'type',['INFP','ENFJ','INTP','ISTP','ENTP']).onChange(guiData.update)
+                gui.add(guiData,'variation').onChange(guiData.toggleVariation)
                 gui.add(guiData,'update')
                 gui.add(guiData,'record')
 				//let f = gui.addFolder('Actions')
@@ -210,7 +220,7 @@
                         
                         let destCanvas = document.getElementsByTagName('canvas')[0]
                         let frame = newCanvas(destCanvas.width,destCanvas.height)
-                        renderPixelized(canvas,frame)
+                        renderPixelized(canvas,frame,myToken.variation)
 
                         // GLYPH archetype animation
                         let sprite = myToken.count>0 && myToken.count%5 === 0 ? myToken.archetype.getNextFrame() : myToken.archetype.getFrame() // advances the frame counter - which loops
